@@ -1,0 +1,164 @@
+---
+title: "Real-Life Data Analysis"
+author: "Hsuan Lee"
+output: pdf_document
+---
+
+```{r}
+library(remstats) # the formula for REH
+library(relevent) # fit REH to REM
+library(REHdynamics) # fit the moving window REM
+library(ocp) # package for BOCD
+library(changepoint) # package for PELT, BS
+library(tidyverse)
+library(patchwork) # combine many plots into one
+library(cowplot)
+library(RColorBrewer) # colors for the plot
+set.seed(9252568)
+```
+
+# Load the data
+
+```{r}
+# Load data using load():
+load("../Data/RealLife_data/Merged_ALL_parts_Apollo.rdata")
+
+# change the name of dataset, only leave time and actors infomation
+Apollo.13 <- Merged_ALL_parts_Apollo[, -c(4,5)]
+
+# change the names of columns
+colnames(Apollo.13) <- c("time", "actor1", "actor2")
+```
+
+# Fit the REM
+
+## Step 1: Assign the formula that indicates which effects shoould contain in the model
+```{r}
+formula <- ~ 1 + 
+  remstats::inertia(scaling = "std") +
+  remstats::outdegreeSender(scaling= "std") +
+  remstats::indegreeReceiver(scaling = "std") +
+  remstats::totaldegreeSender(scaling = "std") +
+  remstats::psABBA(consider_type = FALSE) +
+  remstats::psABXA(consider_type = FALSE) +
+  remstats::psABBY(consider_type = FALSE)
+
+covar <- data.frame(id = 1:19, time = 0)
+```
+
+## Step 2: Compute the statistics
+```{r}
+out <- remstats(tie_effects = formula, edgelist = Apollo.13, actors = 19)
+stat <- out[["statistics"]] # extract the statistics from the list
+```
+
+## Step 3: Fit the windows on the REH
+
+Fit the fix MWREM
+```{r}
+# changepoint 201321 second
+# 602-604 window or -> 9-11 window
+
+# maximum time point of each iteration of REH
+tau <- max(Apollo.13$time)
+
+# specify the length of the window
+windows <- REHdynamics::createwindows(1000, tau, overlap = 2/3)
+
+# fit to the REM model
+model_fixwin <- REHdynamics::MWrem(windows, edgelist = Apollo.13, 
+                                   stats = stat,
+                                   actors = covar$id, directed = TRUE, 
+                                   method = "MLE", model = "tie", ncores = 2)
+```
+
+```{r}
+# save the window settings
+saveRDS(object = model_fixwin, file = "../Data/Window_Parameters/model_fixwin.RDS")
+```
+
+
+Extract the window given parameters
+```{r}
+# extract the parameters
+fixmw_ine_param <- 1
+for (i in 593:length(model_fixwin)) {
+  fixmw_ine_param[i] <- model_fixwin[[i]][["coefficients"]][["inertia"]]
+}
+```
+
+```{r}
+saveRDS(object = fixmw_ine_param, file = "../Data/Window_Parameters/fixmw_ine_param.RDS")
+```
+
+```{r}
+# extract the parameters
+fixmw_out_param <- 1
+for (i in 593:length(model_fixwin)) {
+  fixmw_out_param[i] <- model_fixwin[[i]][["coefficients"]][["outdegreeSender"]]
+}
+```
+
+```{r}
+saveRDS(object = fixmw_out_param, file = "../Data/Window_Parameters/fixmw_out_param.RDS")
+```
+
+```{r}
+# extract the parameters
+fixmw_indeg_param <- 1
+for (i in 593:length(model_fixwin)) {
+  fixmw_indeg_param[i] <- model_fixwin[[i]][["coefficients"]][["indegreeReceiver"]]
+}
+```
+
+```{r}
+saveRDS(object = fixmw_indeg_param, file = "../Data/Window_Parameters/fixmw_indeg_param.RDS")
+```
+
+```{r}
+# extract the parameters
+fixmw_totSend_param <- 1
+for (i in 593:length(model_fixwin)) {
+  fixmw_totSend_param[i] <- model_fixwin[[i]][["coefficients"]][["totaldegreeSender"]]
+}
+```
+
+```{r}
+saveRDS(object = fixmw_totSend_param, file = "../Data/Window_Parameters/fixmw_totSend_param.RDS")
+```
+
+```{r}
+# extract the parameters
+fixmw_psABBA_param <- 1
+for (i in 593:length(model_fixwin)) {
+  fixmw_psABBA_param[i] <- model_fixwin[[i]][["coefficients"]][["psABBA"]]
+}
+```
+
+```{r}
+saveRDS(object = fixmw_psABBA_param, file = "../Data/Window_Parameters/fixmw_psABBA_param.RDS")
+```
+
+```{r}
+# extract the parameters
+fixmw_psABXA_param <- 1
+for (i in 593:length(model_fixwin)) {
+  fixmw_psABXA_param[i] <- model_fixwin[[i]][["coefficients"]][["psABXA"]]
+}
+```
+
+```{r}
+saveRDS(object = fixmw_psABXA_param, file = "../Data/Window_Parameters/fixmw_psABXA_param.RDS")
+```
+
+```{r}
+# extract the parameters
+fixmw_psABBY_param <- 1
+for (i in 593:length(model_fixwin)) {
+  fixmw_psABBY_param[i] <- model_fixwin[[i]][["coefficients"]][["psABBY"]]
+}
+```
+
+```{r}
+saveRDS(object = fixmw_psABBY_param, file = "../Data/Window_Parameters/fixmw_psABBY_param.RDS")
+```
